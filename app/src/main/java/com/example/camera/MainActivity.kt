@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.camera.compose.CameraXViewfinder
+import androidx.camera.viewfinder.compose.MutableCoordinateTransformer
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,8 +18,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.currentComposer
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -95,18 +99,25 @@ private fun CameraPreviewContent(
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
     modifier: Modifier = Modifier
     ) {
-    val surfaceRequest = viewModel.surfaceRequest.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val surfaceRequest = viewModel.surfaceRequest.collectAsStateWithLifecycle()
+
     LaunchedEffect(lifecycleOwner) {
-        viewModel.bindToCamera(context , lifecycleOwner)
+        viewModel.bindToCamera(lifecycleOwner , context)
     }
 
     surfaceRequest.value?.let { request ->
+        val coordinateTransformer = remember { MutableCoordinateTransformer() }
         CameraXViewfinder(
             surfaceRequest = request,
-            modifier = modifier
+            coordinateTransformer = coordinateTransformer,
+            modifier = modifier.pointerInput(Unit) {
+                detectTapGestures { tapCoords ->
+                    with(coordinateTransformer) {
+                        viewModel.tapToFocus(tapCoords.transform())
+                    }
+                }
+            }
         )
-
     }
-
 }
