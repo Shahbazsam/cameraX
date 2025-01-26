@@ -6,27 +6,42 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.viewfinder.compose.MutableCoordinateTransformer
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.currentComposer
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.geometry.takeOrElse
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
+import androidx.compose.ui.unit.round
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,6 +51,8 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
+import kotlinx.coroutines.delay
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,6 +123,21 @@ private fun CameraPreviewContent(
         viewModel.bindToCamera(lifecycleOwner , context)
     }
 
+    var autoFocusRequest by remember { mutableStateOf(UUID.randomUUID() to Offset.Unspecified) }
+
+    val autoFocusRequestId = autoFocusRequest.first
+
+    val showAutoFocusIndicator = autoFocusRequest.second.isSpecified
+
+    val autoFocusCoords = remember(autoFocusRequestId) {autoFocusRequest.second  }
+
+    if (showAutoFocusIndicator) {
+        LaunchedEffect(autoFocusRequestId) {
+            delay(1000)
+            autoFocusRequest = autoFocusRequestId to Offset.Unspecified
+        }
+    }
+
     surfaceRequest.value?.let { request ->
         val coordinateTransformer = remember { MutableCoordinateTransformer() }
         CameraXViewfinder(
@@ -116,8 +148,19 @@ private fun CameraPreviewContent(
                     with(coordinateTransformer) {
                         viewModel.tapToFocus(tapCoords.transform())
                     }
+                    autoFocusRequest = UUID.randomUUID() to tapCoords
                 }
             }
         )
+        AnimatedVisibility(
+            visible = showAutoFocusIndicator,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .offset{autoFocusCoords.takeOrElse { Offset.Zero } .round()}
+                .offset((-24).dp , (-24).dp)
+        ) {
+            Spacer(Modifier.border( 2.dp , Color.White, CircleShape ).size(48.dp))
+        }
     }
 }
